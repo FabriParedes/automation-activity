@@ -2,24 +2,22 @@ name: Update GitHub Activity
 
 on:
   schedule:
-    - cron: "0 */6 * * *"   # cada 6 horas (ajústalo si quieres)
-  workflow_dispatch: {}      # correr manualmente
-  push:
-    branches: [ "main" ]     # opcional: también al hacer push a main
+    - cron: "*/30 * * * *"   
+  workflow_dispatch: {}       
+  
 
 permissions:
-  contents: write
+  contents: write            
 
 jobs:
-  activity:
+  update-activity:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      # Inyecta la actividad del USUARIO entre los marcadores
-      - name: Update activity section
-        uses: jamesgeorge007/github-activity-readme@v0.4.4
+      - name: Update GitHub Activity
+        uses: TheDanniCraft/activity-log@v1
         with:
-          COMMIT_MSG: "docs: update recent activity [skip ci]"
-        env:
+          GITHUB_USERNAME: "<TU-USUARIO-GITHUB>"
           GITHUB_TOKEN: ${{ secrets.REPO_TOKEN }}
+       
