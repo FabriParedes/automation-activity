@@ -1,58 +1,21 @@
-name: Update README Activity
+name: Update GitHub Activity
 
 on:
-  push:
-    branches: [ "main" ]
-  workflow_dispatch: {}
+  schedule:
+    - cron: "*/30 * * * *"   
+  workflow_dispatch: {}       
 
 permissions:
-  contents: write
-
+  contents: write             
 jobs:
-  update-readme:
+  update-activity:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Collect last 10 commits
-        run: |
-          echo "## Recent commits" > activity.md
-          git log -n 10 --pretty='- %s (%h) by %an on %ad' --date=short >> activity.md
-
-      - name: Inject activity into README
-        run: |
-          START="<!--ACTIVITY:START-->"
-          END="<!--ACTIVITY:END-->"
-          CONTENT="$(cat activity.md)"
-          awk -v s="$START" -v e="$END" -v c="$CONTENT" '
-            BEGIN{printed=0}
-            {print}
-            $0 ~ s {
-              print c
-              getline; while ($0 !~ e) getline
-              print $0
-              printed=1
-            }
-          ' README.md > README.new
-          mv README.new README.md
-
-      - name: Commit changes if any
-        run: |
-          if git diff --quiet; then
-            echo "No changes to commit."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add README.md
-          git commit -m "docs: auto-update README activity [skip ci]"
-
-      - name: Push changes
-        env:
-          REPO_TOKEN: ${{ secrets.REPO_TOKEN }}
-        run: |
-          git push "https://x-access-token:${REPO_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main
-
-
+      - name: Update GitHub Activity
+        uses: TheDanniCraft/activity-log@v1
+        with:
+          GITHUB_USERNAME: "<TU-USUARIO-GITHUB>"
+          GITHUB_TOKEN: ${{ secrets.REPO_TOKEN }}
+        
