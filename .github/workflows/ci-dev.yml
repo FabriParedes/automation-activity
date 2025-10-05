@@ -31,42 +31,30 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     environment: dev
+    permissions:
+      contents: write
     steps:
       - name: Download Artifact
         uses: actions/download-artifact@v4
         with:
           name: build-artifact
           path: .
-      - name: Pre-flight Checks
+      - name: Validate Inputs
         env:
           TAG: ${{ vars.BUILD_TAG }}
           NOTE: ${{ vars.RELEASE_NOTE }}
         run: |
           set -euxo pipefail
-          echo "TAG=$TAG"
-          echo "NOTE=$NOTE"
-          if [ -z "${TAG:-}" ]; then echo "Missing BUILD_TAG"; exit 2; fi
-          if [ -z "${NOTE:-}" ]; then echo "Missing RELEASE_NOTE"; exit 2; fi
-          ls -lah
-          if [ ! -f build.zip ]; then echo "build.zip not found"; exit 3; fi
-          gh --version || true
-      - name: Auth Check
+          test -n "${TAG:-}" || (echo "Missing BUILD_TAG" && exit 2)
+          test -n "${NOTE:-}" || (echo "Missing RELEASE_NOTE" && exit 2)
+          test -f build.zip || (echo "build.zip not found" && exit 3)
+      - name: Create Dev Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ vars.BUILD_TAG }}
+          prerelease: true
+          body: ${{ vars.RELEASE_NOTE }}
+          files: build.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euxo pipefail
-          gh auth status || gh auth login --with-token <<< "${GITHUB_TOKEN}"
-      - name: Create or Update Dev Release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ vars.BUILD_TAG }}
-          NOTE: ${{ vars.RELEASE_NOTE }}
-        run: |
-          set -euxo pipefail
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release edit "$TAG" --notes "$NOTE"
-            gh release upload "$TAG" build.zip --clobber
-          else
-            gh release create "$TAG" build.zip --notes "$NOTE" --prerelease
-          fi
 
