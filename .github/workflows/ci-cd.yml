@@ -1,0 +1,88 @@
+name: CI/CD Deployment Pipeline
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build and Package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Package
+        run: |
+          set -euxo pipefail
+          zip -r build.zip .
+          ls -lah build.zip
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifact
+          path: build.zip
+          if-no-files-found: error
+
+  deploy-staging:
+    name: Deploy to Staging
+    needs: build
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifact
+          path: .
+      - name: Validate Inputs (staging)
+        env:
+          TAG: ${{ vars.BUILD_TAG }}
+          NOTE: ${{ vars.RELEASE_NOTE }}
+        run: |
+          set -euxo pipefail
+          test -n "${TAG:-}" || (echo "Missing BUILD_TAG" && exit 2)
+          test -n "${NOTE:-}" || (echo "Missing RELEASE_NOTE" && exit 2)
+          test -f build.zip || (echo "build.zip not found" && exit 3)
+      - name: Create Staging Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ vars.BUILD_TAG }}
+          prerelease: true
+          body: ${{ vars.RELEASE_NOTE }}
+          files: build.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy-production:
+    name: Deploy to Production
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifact
+          path: .
+      - name: Validate Inputs (production)
+        env:
+          TAG: ${{ vars.BUILD_TAG }}
+          NOTE: ${{ vars.RELEASE_NOTE }}
+        run: |
+          set -euxo pipefail
+          test -n "${TAG:-}" || (echo "Missing BUILD_TAG" && exit 2)
+          test -n "${NOTE:-}" || (echo "Missing RELEASE_NOTE" && exit 2)
+          test -f build.zip || (echo "build.zip not found" && exit 3)
+      - name: Create Production Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ vars.BUILD_TAG }}
+          prerelease: false
+          body: ${{ vars.RELEASE_NOTE }}
+          files: build.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
