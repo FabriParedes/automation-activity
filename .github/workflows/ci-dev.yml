@@ -1,0 +1,70 @@
+name: CI Dev Deployment
+
+on:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: write
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  build:
+    name: Build and Package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Install and Build
+        run: |
+          npm ci || npm install
+          npm run build || true
+          if [ -d "dist" ]; then
+            zip -r build.zip dist
+          elif [ -d "build" ]; then
+            zip -r build.zip build
+          else
+            zip -r build.zip .
+          fi
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifact
+          path: build.zip
+          if-no-files-found: error
+
+  deploy-dev:
+    name: Release to Dev
+    needs: build
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - name: Download Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifact
+          path: .
+      - name: Show Environment Vars
+        run: |
+          echo "BUILD_TAG=${{ vars.BUILD_TAG }}"
+          echo "RELEASE_NOTE=${{ vars.RELEASE_NOTE }}"
+      - name: Create or Update Dev Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ vars.BUILD_TAG }}
+          NOTE: ${{ vars.RELEASE_NOTE }}
+        run: |
+          set -e
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --notes "$NOTE"
+            gh release upload "$TAG" build.zip --clobber
+          else
+            gh release create "$TAG" build.zip --notes "$NOTE" --prerelease
+          fi
