@@ -80,6 +80,10 @@ jobs:
     needs: test
     environment: dev
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
@@ -99,13 +103,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euxo pipefail
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release delete "$TAG" -y || true
+          if gh release view "$TAG" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            gh release delete "$TAG" --repo "${GITHUB_REPOSITORY}" -y || true
             git push --delete origin "$TAG" || true
           fi
-          gh release create "$TAG" build.zip --prerelease --title "$TAG" --notes "$NOTES"
+          gh release create "$TAG" build.zip \
+            --repo "${GITHUB_REPOSITORY}" \
+            --prerelease \
+            --title "$TAG" \
+            --notes "$NOTES"
       - name: Show Release URL
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release view "$TAG" --json url,tagName,isPrerelease | jq -r '.'
+          gh release view "$TAG" --repo "${GITHUB_REPOSITORY}" --json url,tagName,isPrerelease | jq -r '.'
