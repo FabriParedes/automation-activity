@@ -117,3 +117,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release view "$TAG" --repo "${GITHUB_REPOSITORY}" --json url,tagName,isPrerelease | jq -r '.'
+
