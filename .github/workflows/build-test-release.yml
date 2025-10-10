@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  deployments: write
 
 jobs:
   build:
@@ -15,10 +16,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+
       - name: Install dependencies
         run: |
           set -euxo pipefail
@@ -27,6 +30,7 @@ jobs:
           else
             npm install || true
           fi
+
       - name: Run build (or mock)
         run: |
           set -euxo pipefail
@@ -36,8 +40,8 @@ jobs:
             mkdir -p dist
             echo "ok" > dist/app.txt
           fi
-          ls -lah || true
           ls -lah dist || true
+
       - name: Package artifact
         run: |
           set -euxo pipefail
@@ -47,6 +51,7 @@ jobs:
             zip -r build.zip .
           fi
           ls -lah build.zip
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -64,11 +69,13 @@ jobs:
         with:
           name: build-artifact
           path: .
+
       - name: Verify artifact exists
         run: |
-          echo "Verifying that build.zip exists..."
-          test -f build.zip || (echo "build.zip not found"; exit 1)
+          set -euxo pipefail
+          test -f build.zip
           echo "build.zip found."
+
       - name: Mock automated tests
         run: |
           echo "Running automated mock tests..."
@@ -80,41 +87,30 @@ jobs:
     needs: test
     environment: dev
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - name: Download artifact
         uses: actions/download-artifact@v4
         with:
           name: build-artifact
           path: .
-      - name: Build unique tag
-        run: |
-          SHORT_SHA="${GITHUB_SHA::7}"
-          echo "TAG=dev-${GITHUB_RUN_NUMBER}-${SHORT_SHA}" >> $GITHUB_ENV
-          echo "NOTES=Automated dev release after successful tests" >> $GITHUB_ENV
-      - name: Validate artifact before release
-        run: |
-          test -f build.zip || (echo "build.zip missing at release step"; exit 1)
-          ls -lah build.zip
-      - name: Create GitHub Release (gh cli)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euxo pipefail
-          if gh release view "$TAG" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
-            gh release delete "$TAG" --repo "${GITHUB_REPOSITORY}" -y || true
-            git push --delete origin "$TAG" || true
-          fi
-          gh release create "$TAG" build.zip \
-            --repo "${GITHUB_REPOSITORY}" \
-            --prerelease \
-            --title "$TAG" \
-            --notes "$NOTES"
-      - name: Show Release URL
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release view "$TAG" --repo "${GITHUB_REPOSITORY}" --json url,tagName,isPrerelease | jq -r '.'
 
+      - name: Compute unique tag and notes
+        id: meta
+        run: |
+          echo "TAG=dev-${GITHUB_RUN_ID}" >> $GITHUB_ENV
+          echo "NOTES=Automated dev release after successful tests (run ${GITHUB_RUN_ID})" >> $GITHUB_ENV
+          test -f build.zip
+
+      - name: Create Release (REST)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          prerelease: true
+          body: ${{ env.NOTES }}
+          files: build.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Show release info
+        run: |
+          echo "Created release tag: $TAG"
+          echo "Notes: $NOTES"
