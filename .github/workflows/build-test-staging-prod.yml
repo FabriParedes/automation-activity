@@ -92,6 +92,7 @@ jobs:
           TEST_ENV: ${{ vars.TEST_ENV }}
         run: |
           set -euxo pipefail
+          : "${TEST_ENV:=staging}"
           echo "TEST_ENV=$TEST_ENV"
           [ "$TEST_ENV" = "staging" ]
           unzip -t build.zip
@@ -113,6 +114,7 @@ jobs:
           TEST_ENV: ${{ vars.TEST_ENV }}
         run: |
           set -euxo pipefail
+          : "${TEST_ENV:=prod}"
           echo "TEST_ENV=$TEST_ENV"
           [ "$TEST_ENV" = "prod" ]
           unzip -t build.zip
