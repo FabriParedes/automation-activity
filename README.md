@@ -1,6 +1,9 @@
-<!--ACTIVITY:START-->
-## Recent commits
-- Update build-test-release.yml (a5b3bc1) by Fabrizio Paredes on 2025-10-09
-<!--ACTIVITY:END-->
-This section is auto-updated by CI
->first update for RA-46 issue
+# Project Title: BASE
+
+This repository is part of the Continuous Integration - Merge Conflicts Experiment.
+It is managed by the Project Manager (PM) and two collaborators.
+
+## Instructions
+- Collaborator A and Collaborator B will both edit the line above (Project Title: BASE).
+- They will each propose a different version of the title.
+- The PM will then handle the conflict resolution.
